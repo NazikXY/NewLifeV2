@@ -4,6 +4,7 @@ from Entities import *
 from threading import Thread
 from time import sleep
 from Enums import *
+from random import randint
 
 
 class Point:
@@ -15,7 +16,6 @@ class Point:
         self.y = y
         self.obj = Empty()
         self.effect = [AirEffect(sl/10), MineralEffect(mn/10)]
-
 
     def get_effects(self):
         return "sun = " + str(self.effect[0].sun_light) + " mineral = "\
@@ -37,7 +37,7 @@ class Area:
 
     @classmethod
     def gen_area(cls, height, width):
-        return [[Point(abs(y-height+1)/2, y/2, y, x)for x in range(width)] for y in range(height)]
+        return [[Point(abs(y-height+1), y, y, x)for x in range(width)] for y in range(height)]
 
     def text_render(self):
         self.renderer.show_in_terminal()
@@ -74,27 +74,33 @@ class Area:
                         point.obj.behavior()
                         point.app_eff()
 
-            if Food.counter <= 10 and Poison.counter <= 10:
-                self.place_food_and_poison(count=5)
+            if Food.counter <= food_count and Poison.counter <= food_count:
+                self.place_food_and_poison(count=1)
             if flag:
                 break
-            sleep(0.01)
+            sleep(0.05)
 
     def clear(self, x, y, radius):
+        cm = randint(10, 99)
         for i in range(-radius, radius + 1):
             for a in range(-radius, radius + 1):
                 if self.space_manager.check_place(x, y) is not ObjTypes.Border:
                     if isinstance(self.space[y+a][x+i].obj, Liver):
-                        self.space[y + a][x + i].obj.health = -1
+                        self.space[y + a][x + i].obj.command = cm
                         # self.destroy(x+i, y+a)
 
     def place_food_and_poison(self, count):
         for i in range(count):
             result = self.space_manager.random_empty_coords()
+            if result is None:
+                continue
             result = result.x, result.y
             self.place_obj(*result, Food(*result))
+
         for i in range(count):
             result = self.space_manager.random_empty_coords()
+            if result is None :
+                continue
             result = result.x, result.y
             self.place_obj(*result, Poison(*result))
 
@@ -118,9 +124,10 @@ class AirEffect(Effects):
         self.sun_light = sun_light
 
     def apply_effect(self, obj):
-        if self.sun_light >= 1:
+        if self.sun_light >= 3:
             obj.sun_light += self.sun_light
         else:
+            obj.sun_light += self.sun_light/2
             if obj.sun_light > 0:
                 obj.sun_light -= 0.1
 
@@ -131,4 +138,9 @@ class MineralEffect(Effects):
         self.minerals = mnrl
 
     def apply_effect(self, obj):
-        obj.minerals += self.minerals
+        if self.minerals >= 3:
+            obj.minerals += self.minerals
+        else:
+            obj.minerals += self.minerals/2
+            if obj.minerals > 0:
+                obj.minerals -= 0.1

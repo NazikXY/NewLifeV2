@@ -30,29 +30,16 @@ class Liver(Entities):
                + str(self.armor) + ', coords: (' + str(self.x)+","+str(self.y)+")" + str(self.colors) + " " \
                + str(self.health) + " " + str(self.status) + ', id = %d' % self.my_id + ' pht_c %s' % self.pht_counter
 
-    def get_pinfo(self):
-        return "#############################\n" +\
-               "#  %s     %d      %s           #\n" % (self.pht_counter, self.mnrlprc_counter, self.hunt_counter) +\
-               "# pht  mnrl  hunt  ##########\n" +\
-               "#############################\n" +\
-               "#############################\n" +\
-               "#############################\n" +\
-               "#############################\n" +\
-               "#############################\n" +\
-               "#############################\n" +\
-               "#############################\n" +\
-               "#############################"
-
     def get_brain(self):
         return str(self.brain)
 
     @staticmethod
     def gen_brain():
-        return [randint(0, 13) for i in range(255)]
+        return [randint(0, 13) for i in range(brain_size)]
 
     def __init__(self, x, y, area, brain=None, generation=0, command=0):
         if command == 0:
-            self.command = randint(0, 1000)
+            self.command = randint(10, 99)
         else:
             self.command = command
         self.my_id = Liver.ids
@@ -165,6 +152,8 @@ class Liver(Entities):
                 self.health += 10
 
     def pht_sintes(self):
+        if self.pht_counter >= 200:
+            self.pht_mutation()
         self.health -= step_damage
         if self.sun_light >= pht_sunlight_limit and self.minerals >= pht_minerals_limit:
             self.pht_counter += 1
@@ -174,11 +163,15 @@ class Liver(Entities):
             self.sun_light /= light_for_photo_sintes
             self.minerals /= minerals_for_photo_sintes
             self.color_processing('green', 'red', 'blue')
+            if self.energy >= 300:
+                self.friend_cerry()
             return 1
         else:
             return 0
 
     def mineral_processing(self):
+        if self.mnrlprc_counter >= 200:
+            self.mnrl_mutation()
         self.health -= step_damage
         if self.minerals >= minerals_limit:
             self.mnrlprc_counter += 1
@@ -187,6 +180,8 @@ class Liver(Entities):
             self.armor += tmp * mnrl_armor_efficiency
             self.energy += tmp * mnrl_energy_efficiency
             self.color_processing('blue', 'red', 'green')
+            if self.energy >= 300:
+                self.friend_cerry()
             return tmp
         else:
             return 0
@@ -215,19 +210,19 @@ class Liver(Entities):
 
     def replication(self):
         self.health -= step_damage
-        if self.energy <= 100:
+        if self.energy <= 200:
             return
         if self.status == LiverStatus.Child:
             return
         tmp_env = self.area.space_manager.look_around(self.x, self.y)
         new_brain = self.brain.copy()
         for i in range(8):
-            new_brain[randint(0, 254)] = randint(0, 19)
+            new_brain[randint(0, brain_size-1)] = randint(0, 19)
 
         for i in tmp_env:
             if isinstance(i[0], Empty) and randint(0, 8) < 4 and self.energy >= 0:
-                self.area.place_obj(i[1], i[2], Liver(i[1], i[2], self.area, new_brain,self.generation+1, self.command))
-                self.energy -= 100
+                self.area.place_obj(i[1], i[2], Liver(i[1], i[2], self.area, new_brain, self.generation+1, self.command))
+                self.energy -= 200
             if isinstance(i[0], Corpse) and randint(0, 8) < 4 and self.energy >= 0:
                 self.area.place_obj(i[1], i[2], Liver(i[1], i[2], self.area, new_brain,self.generation+1, self.command))
                 self.energy -= 50
@@ -258,16 +253,26 @@ class Liver(Entities):
             return False
 
     def hunt(self):
+
         if self.energy <= 20:
             return
+
+        if self.hunt_counter >= 100:
+            self.hunt_mutation()
+
         tmp_env = self.area.space_manager.look_around(self.x, self.y)
         targets = [(i[1], i[2]) for i in tmp_env if isinstance(i[0], Liver) and not
                    i[0].compare_generation(self.get_generation())]
-        if (self.x, self.y) in targets:
-            targets.remove((self.x, self.y))
+
+        if self.acid >= 100:
+            self.acid_splash()
 
         if len(targets) > 0:
             self.eat_liver(*choice(targets))
+        else:
+            self.hunt_counter -= 1
+            if self.hunt_counter <= -100:
+                choice([self.pht_mutation, self.mnrl_mutation])()
 
     def get_generation(self):
         return self.command
@@ -298,7 +303,7 @@ class Liver(Entities):
         self.area.destroy(x, y)
         self.health += 20
         self.energy += 20
-        self.area.replace_obj(self.x, self.y, x, y)
+        # self.area.replace_obj(self.x, self.y, x, y)
         Food.counter -= 1
 
     def search_food(self):
@@ -312,9 +317,9 @@ class Liver(Entities):
 
     def eat_poison(self, x, y):
         self.area.destroy(x, y)
-        self.health -= self.health // 2
+        self.health -= self.health // 1.5
         self.energy += 10
-        self.area.replace_obj(self.x, self.y, x, y)
+        # self.area.replace_obj(self.x, self.y, x, y)
         Poison.counter -= 1
 
     def search_poison(self):
@@ -341,8 +346,6 @@ class Liver(Entities):
         tmp_env = self.area.space_manager.look_around(self.x, self.y)
         targets = [(i[1], i[2]) for i in tmp_env if isinstance(i[0], Liver) and
                    i[0].compare_generation(self.get_generation())]
-        if (self.x, self.y) in targets:
-            targets.remove((self.x, self.y))
 
         for i in targets:
             self.cerry_to(*i)
@@ -351,18 +354,58 @@ class Liver(Entities):
         if self.energy < 30:
             return
         self.health -= step_damage
-        if self.energy > self.area.space[y][x].obj.energy:
+
+        if (self.energy - self.area.space[y][x].obj.energy) > 100:
             tmp = (self.energy + self.area.space[y][x].obj.energy)/2
             self.energy = tmp
             self.area.space[y][x].obj.energy = tmp
-        if self.minerals > self.area.space[y][x].obj.minerals :
+
+        if (self.minerals - self.area.space[y][x].obj.minerals) > 100:
             tmp = (self.minerals + self.area.space[y][x].obj.minerals) / 2
             self.minerals = tmp
             self.area.space[y][x].obj.minerals = tmp
-        if self.acid > self.area.space[y][x].obj.acid:
+
+        if (self.acid - self.area.space[y][x].obj.acid) > 100:
             tmp = (self.acid + self.area.space[y][x].obj.acid)/2
             self.acid = tmp
             self.area.space[y][x].obj.acid = tmp
+
+        # self.color_processing('red', 'green', 'blue')
+        # self.color_processing('green', 'red', 'blue')
+
+    def acid_splash(self) :
+        tmp_env = self.area.space_manager.look_around (self.x, self.y)
+        targets = [(i[1], i[2]) for i in tmp_env if isinstance(i[0], Liver) and
+                   i[0].compare_generation(self.get_generation())]
+        for i in targets:
+            if self.area.space[i[1]][i[0]].obj.armor >= 0:
+                self.area.space[i[1]][i[0]].obj.armor = 0
+            else:
+                self.area.space[i[1]][i[0]].obj.health -= self.area.space[i[1]][i[0]].obj.health // 2
+
+    def hunt_mutation(self) :
+        self.hunt_counter = 0
+        for i in range(8):
+            for i in range(len(self.brain)):
+                if self.brain[i] == 4 or self.brain[i] == 5 or self.brain[i] == 12:
+                    self.brain[i] = 8
+
+    def pht_mutation(self):
+        self.pht_counter = 0
+        for i in range(8):
+            for i in range(len(self.brain)):
+                if self.brain[i] == 8 or self.brain[i] == 5:
+                    self.brain[i] = 4
+
+    def mnrl_mutation(self) :
+        self.mnrlprc_counter = 0
+        for i in range(8):
+            for i in range(len(self.brain)) :
+                if self.brain[i] == 8 or self.brain[i] == 4:
+                    self.brain[i] = 5
+
+    def __str__(self):
+        return self.symbol + " ," + str(self.command) + " ," + str(self.energy)
 
 
 class Food(Entities):

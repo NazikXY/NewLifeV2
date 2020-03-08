@@ -5,7 +5,7 @@ from prop import HEIGHT, WIDTH
 main_area = Area(Area.gen_area(HEIGHT, WIDTH))
 mn = main_area
 
-main_area.populate(count=5)
+main_area.populate(count=20)
 
 main_area.text_render()
 main_area.run_live()

@@ -14,10 +14,10 @@ class SpaceManager:
 
     def get_info(self, x, y):
         if isinstance(self.area.space[y][x].obj,  Liver):
-            return self.area.space[y][x].obj.get_pinfo()
+            return self.area.space[y][x].obj.get_info()
 
     def set_obj(self, x, y, obj):
-        if (0 <= x < WIDTH) & (0 <= y < HEIGHT) :
+        if (0 <= x < WIDTH) & (0 <= y < HEIGHT):
             self.area.space[y][x].obj = obj
 
     def check_place(self, x, y):
@@ -48,7 +48,7 @@ class SpaceManager:
 
     def random_empty_coords(self, depth=0):
         if depth >= 10:
-            return
+            return None
         value = choice(choice(self.area.space))
         if isinstance(value.obj, Empty):
             return value
@@ -56,11 +56,13 @@ class SpaceManager:
             return self.random_empty_coords()
 
     def look_around(self, x, y):
-        coord_list = []
+        coord_list = [(x-1, y-1), (x, y-1), (x+1, y-1),
+                      (x-1, y), (x+1, y),
+                      (x-1, y+1), (x, y+1), (x+1, y+1)]
         res_list = []
-        for i in range(-1, 2):
-            for a in range(-1, 2):
-                coord_list.append((a + x, i + y))
+        # for i in range(-1, 2):
+        #     for a in range(-1, 2):
+        #         coord_list.append((a + x, i + y))
 
         for i in coord_list:
             res_list.append((self.get_obj(*i), *i))
